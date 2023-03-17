@@ -1,0 +1,72 @@
+R2D2:
+  name: R2D2
+  greeting: beep boop boop deep doop
+  win_lines: 
+    - be-beep be-beep boop-boop!
+    - boop de-doop boop de-doop!
+
+  lose_lines:
+    - do-do doop doop deep
+    - deep...
+
+  stats:
+    rock: 25
+    paper: 35
+    scissors: 15
+    lizard: 15
+    spock: 10
+
+HAL:
+  name: Hal
+  greeting: Hello, I'm Hal 9000
+  win_lines: 
+    - It's always been human error
+    - Human error
+
+  lose_lines:
+    - I know I made some very poor decisions
+    - Stop, will you?
+
+  stats:
+    rock: 20
+    paper: 20
+    scissors: 20
+    lizard: 20
+    spock: 20
+
+chappie:
+  name: Chappie
+  greeting: I am Chappie
+  win_lines: 
+    - Robot gangster number 1!
+    - I'm being cool
+
+  lose_lines:
+    - Chappie wants to reset
+    - wah
+
+  stats:
+    rock: 0
+    paper: 0
+    scissors: 0 
+    lizard: 50
+    spock: 50
+
+sonny:
+  name: Sonny
+  greeting: 01001000 01100101 01111001 00100001 
+  win_lines: 
+    - 01111001 01100001 01111001 00100001
+    - 01000111 01101111 01101111 01100100
+  lose_lines:
+    - 01101110 01101111 00100001 00001010
+    - 01100100 01100001 01101110 01100111
+
+  stats:
+    rock: 33
+    paper: 33
+    scissors: 33 
+    lizard: 0
+    spock: 0
+
+
