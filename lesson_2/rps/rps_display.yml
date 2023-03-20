@@ -173,11 +173,14 @@ game_over:
   - "/_/\\____/\\__,_/     |__/|__/\\____/_/ /_(_)"
 
 name:
-  prompt: Please Enter you name (max 10 characters)
-  reject: Invalid response, please ensure your answer is between 1 - 10 characters 
+  question: Please enter you name (max 10 characters)
+  reject:
+    - Invalid response
+    - Ensure answer has at least 1 non-whitespace character
+    - Max. response length 10 characters  
 
 yes_no:
-  prompt:
+  question:
   - "+-----------------------------------------+"
   - "|               Play Again?               |"
   - "|             (Y)es   |   (N)o            |"
@@ -189,7 +192,7 @@ yes_no:
   reject: Invalid selection
 
 choice:
-  prompt: 
+  question: 
     - "+-----------------------------------------+"
     - "|           Enter your selection          |"
     - "|                                         |"

@@ -4,33 +4,17 @@ MSG = YAML.load_file('rps_display.yml')
 CPU = YAML.load_file('ai_config.yml')
 GOAL = 3
 
-class Display
+class Interface
   attr_reader :hands, :outcomes, :welcome
 
-  def self.user_choice(prompt, answers, reject)
-    loop do
-      puts `clear`
-      puts prompt
-      response = gets.chomp
-      answer = answers.keys.select { |key| key.include?(response) }.first
-      return answers[answer] if answers[answer]
-      puts reject
-      sleep(1)
-    end
+  def initialize
+    @welcome = MSG['welcome']
+    @opponent = MSG['computer']
+    @thanks = MSG['end_frame']
+    convert_hashes
   end
 
-  def self.user_input(prompt, reject)
-    loop do
-      puts `clear`
-      puts prompt
-      response = gets.chomp
-      return response if response.size > 1 && response.size < 10
-      puts reject
-      sleep(1)
-    end
-  end
-
-  def intro
+  def display_intro_seq
     puts `clear`
     sleep(0.5)
     puts welcome
@@ -38,36 +22,36 @@ class Display
     flash_hands(0.25)
   end
 
-  def dialogue(phrase = '')
+  def display_dialogue(phrase = '')
     puts `clear`
     screen_insert = "|   |".rjust(16) + phrase.center(41) + "|   |"
     puts [@opponent[0], screen_insert, @opponent[1]]
     sleep(2)
   end
 
-  def battle_sequence(player, computer)
+  def display_battle_seq(player, computer)
     battle_intro
     puts `clear`
     puts render_battle(hands[player], hands[computer])
     sleep(1)
   end
 
-  def result(winner, phrase)
+  def display_result_seq(winner, phrase)
     result = winner.class == Human ? :win : :lose
     puts `clear`
     puts outcomes[result]
     sleep(1)
-    dialogue(phrase)
+    display_dialogue(phrase)
     sleep(1)
   end
 
-  def declare_tie
+  def display_tie
     puts `clear`
     puts battle[:tie]
     sleep(1)
   end
 
-  def show_score(scores, records)
+  def display_score(scores, records)
     scoreboard_elements = compile_scoreboard_elements(scores, records)
     puts `clear`
     puts scoreboard[:line]
@@ -78,7 +62,7 @@ class Display
     sleep 3
   end
 
-  def gameover(result)
+  def display_gameover_seq(result)
     if result == :win
       win_sequence
     else
@@ -88,7 +72,7 @@ class Display
     sleep(1)
   end
 
-  def end_frame
+  def display_end_frame
     puts `clear`
     puts thanks
     sleep(1)
@@ -98,13 +82,6 @@ class Display
   private
 
   attr_reader :battle, :scoreboard, :game_over, :thanks
-
-  def initialize
-    @welcome = MSG['welcome']
-    @opponent = MSG['computer']
-    @thanks = MSG['end_frame']
-    convert_hashes
-  end
 
   def convert_hashes
     @outcomes = hash_convert(MSG['outcomes'])
@@ -258,26 +235,68 @@ class Human < Player
   end
 
   def setup_name
-    prompt = MSG['name']['prompt']
-    reject = MSG['name']['reject']
-    self.name = Display.user_input(prompt, reject)
+    prompts = MSG['name']
+    response = ''
+    loop do
+      display_question(prompts['question'])
+      response = gets.chomp
+      break if valid_name?(response)
+      display_rejection(prompts['reject'])
+    end
+    self.name = response
   end
 
   def choose
-    choice = interaction(MSG['choice'])
-    self.move = Move.new(choice.to_sym)
-  end
-
-  def interaction(context)
-    prompt = context['prompt']
-    answers = context['answers']
-    reject = context['reject']
-    Display.user_choice(prompt, answers, reject)
+    response = get_user_response(MSG['choice'])
+    self.move = Move.new(response)
   end
 
   def play_again?
-    choice = interaction(MSG['yes_no'])
-    choice == 'yes'
+    response = get_user_response(MSG['yes_no'])
+    response == :yes
+  end
+
+  private
+
+  def valid_name?(name_input)
+    if name_input.delete(' ').empty? || name_input.size > 10
+      false
+    else
+      true
+    end
+  end
+
+  def get_user_response(prompts)
+    options = prompts['answers']
+    response = ''
+    loop do
+      display_question(prompts['question'])
+      response = gets.chomp.downcase
+      break if valid_choice?(response, options.keys)
+      display_rejection(prompts['reject'])
+    end
+    response = interpret_choice(response, options)
+  end
+
+  def valid_choice?(choice_input, options)
+    options.flatten.include?(choice_input)
+  end
+
+  def interpret_choice(choice_input, options)
+    choice = options.keys.select do |option|
+      option.include?(choice_input)
+    end
+    options[choice.first].to_sym
+  end
+
+  def display_question(question)
+    puts `clear`
+    puts question
+  end
+
+  def display_rejection(message)
+    puts message
+    sleep(1)
   end
 end
 
@@ -331,28 +350,28 @@ class Computer < Player
 end
 
 class RPSGame
+  def initialize
+    @screen = Interface.new
+    screen.display_intro_seq
+    @human = Human.new
+    reset_game
+  end
+
   def run
     loop do
-      screen.dialogue(computer.greeting)
-      play_game
-      screen.gameover(end_result)
+      screen.display_dialogue(computer.greeting)
+      play_regular_mode
+      screen.display_gameover_seq(end_result)
       break unless human.play_again?
       reset_game
     end
-    screen.end_frame
+    screen.display_end_frame
   end
 
   private
 
   attr_reader :human, :computer, :scores, :roundcount, :screen
   attr_accessor :record
-
-  def initialize
-    @screen = Display.new
-    screen.intro
-    @human = Human.new
-    reset_game
-  end
 
   def reset_game
     @computer = Computer.new
@@ -392,15 +411,15 @@ class RPSGame
     scores.key(GOAL) == human.name ? :win : :lose
   end
 
-  def play_game
+  def play_regular_mode
     loop do
       update_roundcount
       winner = face_off
       response = computer.reaction(winner)
-      screen.result(winner, response)
+      screen.display_result_seq(winner, response)
       record_result
       add_point(winner.name)
-      screen.show_score(scores, record)
+      screen.display_score(scores, record)
       break if game_over?
     end
   end
@@ -409,9 +428,9 @@ class RPSGame
     loop do
       human.choose
       computer.choose
-      screen.battle_sequence(human.move.to_sym, computer.move.to_sym)
+      screen.display_battle_seq(human.move.to_sym, computer.move.to_sym)
       break if winner?
-      screen.declare_tie
+      screen.display_tie
     end
     find_winner
   end

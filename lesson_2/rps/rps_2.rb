@@ -45,3 +45,4 @@ class Paper
 end
 
 puts Rock.compare(Paper)
+#=> lose
