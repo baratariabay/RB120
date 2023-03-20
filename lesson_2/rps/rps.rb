@@ -84,11 +84,17 @@ class Interface
   attr_reader :battle, :scoreboard, :game_over, :thanks
 
   def convert_hashes
-    @outcomes = hash_convert(MSG['outcomes'])
-    @battle = hash_convert(MSG['battle'])
-    @scoreboard = hash_convert(MSG['scoreboard'])
-    @game_over = hash_convert(MSG['game_over'])
+    @outcomes = hashify(MSG['outcomes'])
+    @battle = hashify(MSG['battle'])
+    @scoreboard = hashify(MSG['scoreboard'])
+    @game_over = hashify(MSG['game_over'])
     @hands = setup_hands(MSG['hands'])
+  end
+
+  def hashify(data)
+    data.each_with_object({}) do |(key, graphic), new_hash|
+      new_hash[key.to_sym] = graphic
+    end
   end
 
   def setup_hands(hands_data)
@@ -101,12 +107,6 @@ class Interface
     max_length = graphic.max_by(&:size)
     max_length = max_length.size
     graphic.map { |line| line.ljust(max_length) }
-  end
-
-  def hash_convert(data)
-    data.each_with_object({}) do |(key, graphic), new_hash|
-      new_hash[key.to_sym] = graphic
-    end
   end
 
   def flash_hands(speed)
