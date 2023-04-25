@@ -312,10 +312,9 @@ class Human < Player
 end
 
 class Computer < Player
-  attr_reader :board
+  attr_accessor :board
 
-  def initialize(board)
-    @board = board
+  def initialize
     @name = select_name
     @marker = select_marker
     @avatar = select_avatar
@@ -329,6 +328,7 @@ class Computer < Player
       make_strategic_choice
     end
   end
+
 
   private
 
@@ -412,8 +412,8 @@ class TTTMatch
   include Interactables
   attr_reader :board, :human, :computer, :current_player, :mode
 
-  def initialize(board, mode, players, starter)
-    @board = board
+  def initialize(mode, players, starter)
+    @board = Board.new
     @mode = mode
     @human = players[0]
     @computer = players[1]
@@ -421,7 +421,6 @@ class TTTMatch
   end
 
   def play_match
-    board.reset
     display_frame(render_interface)
     player_moves
     display_result
@@ -471,6 +470,7 @@ class TTTMatch
   end
 
   def computer_moves!
+    computer.board = board 
     choice = computer.choose_move(mode)
     board[choice] = computer.marker
   end
@@ -496,7 +496,8 @@ class TTTGame
   include Displayables, Interactables
 
   def initialize
-    @board = Board.new
+    @human = Human.new
+    @computer = Computer.new
     @starter = "Random"
     @mode = :easy
   end
@@ -513,8 +514,7 @@ class TTTGame
   attr_reader :board, :human, :computer, :current_player, :mode
 
   def setup_players
-    @human = Human.new
-    @computer = Computer.new(board)
+    
   end
 
   def main_menu
@@ -547,7 +547,7 @@ class TTTGame
 
   def main_game
     loop do
-      match = TTTMatch.new(board, mode, [human, computer], starter)
+      match = TTTMatch.new(mode, [human, computer], starter)
       match.play_match
       record_score(match)
       break if game_winner?
