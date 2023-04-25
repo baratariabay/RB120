@@ -1,33 +1,152 @@
 require 'yaml'
+
+WIN_GOAL = { easy: 2, normal: 3 }
+
 CONFIG = YAML.load_file('ttt.yml')
 
-module Interactables
+module Printables
+  def display_frame(content)
+    screen_clear
+    puts content
+  end
+
   def screen_clear
     system 'clear'
   end
 
-  def get_num_from_user(content, max_number: nil)
+  def play_animation(frames, loops: 1)
+    loops.times do
+      frames.each do |frame|
+        display_frame(frame)
+        sleep(0.15)
+      end
+    end
+  end
+
+  def render(components)
+    rendered_frame = []
+    components.first.size.times do |line|
+      rendered_line = ''
+      components.each do |component|
+        rendered_line << component[line]
+      end
+      rendered_frame << rendered_line
+    end
+    rendered_frame
+  end
+
+  def multi_string_format(template, dynamic_content = nil)
+    text = CONFIG[template].join("\n")
+    if dynamic_content
+      format(text, dynamic_content)
+    else
+      text
+    end
+  end
+
+  def format_list(list)
+    if list.size == 1
+      list.first
+    else
+      list[0...-1].join(', ') + " or #{list.last}"
+    end
+  end
+end
+
+module Interactables
+  include Printables
+
+  def get_num_from_user(question, options: nil)
     loop do
-      choice = question_and_answer(content).to_i
-      return choice if (1..max_number).include?(choice)
+      screen_clear
+      choice = question_user(question).to_i
+      return choice if options.include?(choice)
       reject_input
     end
   end
 
-  def question_and_answer(content)
-    display_frame(content)
+  def get_text_from_user(prompt, options: nil)
+    loop do
+      screen_clear
+      answer = question_user(prompt).capitalize
+      return answer if valid_response?(options, answer)
+      reject_input
+    end
+  end
+
+  def question_user(question)
+    puts question
     gets.chomp
   end
 
   def reject_input
-    content = CONFIG['invalid_input']
-    display_frame(content)
+    rejection_message = CONFIG['invalid_input']
+    display_frame(rejection_message)
     sleep(0.5)
   end
 
-  def display_frame(content)
+  def valid_response?(options, answer)
+    if options
+      options.include?(answer)
+    else
+      !(answer.delete(' ').empty? || answer.size > 10)
+    end
+  end
+end
+
+module Displayables
+  include Printables
+
+  def display_welcome_message
+    column = CONFIG['empty_box']
+    frames = CONFIG['intro_seq']
+
+    frames = frames.map do |frame|
+      render([column, frame, column])
+    end
+    play_animation(frames)
+  end
+
+  def render_menu_interface
+    components = [human.to_s, render_menu_text, computer.to_s]
+    components.map! { |component| component.split("\n") }
+    render(components)
+  end
+
+  def render_menu_text
+    match_settings = {
+      mode: format_menu_element(@mode.to_s),
+      first: format_menu_element(@starter)
+    }
+    multi_string_format('menu', match_settings)
+  end
+
+  def render_starter_options
+    names = {
+      human: format_menu_element(human.name),
+      computer: format_menu_element(computer.name)
+    }
+    multi_string_format('select_starter', names)
+  end
+
+  def format_menu_element(name)
+    name.capitalize.ljust(10)
+  end
+
+  def display_game_result
+    game_result = CONFIG['game_result']
+    if human.wins == WIN_GOAL[mode]
+      play_animation(game_result['win'], loops: 6)
+    else
+      display_frame(game_result['lose'])
+      sleep(1)
+    end
+  end
+
+  def display_goodbye_message
+    display_frame(CONFIG['outro'])
+    sleep(1)
     screen_clear
-    puts content
   end
 end
 
@@ -61,6 +180,10 @@ class Board
     @squares[key].marker = marker
   end
 
+  def someone_won?
+    !!winning_marker
+  end
+
   def unmarked_keys
     @squares.keys.select { |key| @squares[key].unmarked? }
   end
@@ -69,12 +192,8 @@ class Board
     unmarked_keys.empty?
   end
 
-  def someone_won?
-    !!winning_marker
-  end
-
-  def count_markers(marker, squares)
-    squares.map(&:marker).count(marker)
+  def reset
+    (1..9).each { |key| @squares[key] = Square.new }
   end
 
   # returns winning marker or nil
@@ -88,14 +207,12 @@ class Board
     nil
   end
 
+  private
+
   def three_identical_markers?(squares)
     markers = squares.select(&:marked?).collect(&:marker)
     return false if markers.size != 3
     markers.min == markers.max
-  end
-
-  def reset
-    (1..9).each { |key| @squares[key] = Square.new }
   end
 end
 
@@ -147,11 +264,11 @@ class Player
 
   private
 
-  def store_marker_selection
+  def store_marker_selection!
     @@selected_markers << marker
   end
 
-  def store_avatar_selection
+  def store_avatar_selection!
     @@selected_avatars << avatar
   end
 
@@ -178,32 +295,19 @@ class Human < Player
   end
 
   def select_marker
-    content = CONFIG['marker_options']
-    choice = get_num_from_user(content, max_number: 8)
+    choice = get_num_from_user(CONFIG['marker_options'], options: (1..8))
     @marker = CONFIG['markers'][choice]
-    store_marker_selection
+    store_marker_selection!
   end
 
   def select_avatar
-    content = CONFIG['face_options']
-    choice = get_num_from_user(content, max_number: 6)
+    choice = get_num_from_user(CONFIG['face_options'], options: (1..6))
     @avatar = CONFIG['faces'][choice]
-    store_avatar_selection
+    store_avatar_selection!
   end
 
   def set_name
-    content = CONFIG['enter_name']
-    response = ''
-    loop do
-      response = question_and_answer(content)
-      break if valid_name?(response)
-      reject_input
-    end
-    @name = response
-  end
-
-  def valid_name?(name_input)
-    !(name_input.delete(' ').empty? || name_input.size > 10)
+    @name = get_text_from_user(CONFIG['enter_name'])
   end
 end
 
@@ -304,10 +408,92 @@ class Computer < Player
   end
 end
 
-class TTTGame
+class TTTMatch
   include Interactables
+  attr_reader :board, :human, :computer, :current_player, :mode
 
-  WIN_GOAL = { easy: 2, normal: 3 }
+  def initialize(board, mode, players, starter)
+    @board = board
+    @mode = mode
+    @human = players[0]
+    @computer = players[1]
+    @current_player = starter
+  end
+
+  def play_match
+    board.reset
+    display_frame(render_interface)
+    player_moves
+    display_result
+  end
+
+  def find_winner
+    if board.winning_marker == human.marker
+      human
+    elsif board.winning_marker == computer.marker
+      computer
+    end
+  end
+
+  private
+
+  def render_interface
+    components = [human.to_s, board.to_s, computer.to_s]
+    components.map! { |component| component.split("\n") }
+    render(components)
+  end
+
+  def player_moves
+    loop do
+      current_player_moves
+      display_frame(render_interface)
+      sleep(0.3)
+      break if board.someone_won? || board.full?
+    end
+  end
+
+  def current_player_moves
+    if current_player == human
+      human_moves!
+      @current_player = computer
+    else
+      computer_moves!
+      @current_player = human
+    end
+  end
+
+  def human_moves!
+    options = board.unmarked_keys
+    prompt = render_interface
+    prompt << "\nPlease Enter #{format_list(options)}:"
+    square = get_num_from_user(prompt, options: options)
+    board[square] = human.marker
+  end
+
+  def computer_moves!
+    choice = computer.choose_move(mode)
+    board[choice] = computer.marker
+  end
+
+  def display_result
+    result = render_match_endframe
+    display_frame(result)
+    sleep(1)
+  end
+
+  def render_match_endframe
+    winner = if board.someone_won?
+               find_winner.name + " Won!"
+             else
+               "It's a tie"
+             end
+
+    multi_string_format('match_winner', winner: winner.center(16))
+  end
+end
+
+class TTTGame
+  include Displayables, Interactables
 
   def initialize
     @board = Board.new
@@ -316,7 +502,7 @@ class TTTGame
   end
 
   def play
-    display_welcome_message
+    # display_welcome_message
     setup_players
     main_menu
     display_goodbye_message
@@ -333,9 +519,9 @@ class TTTGame
 
   def main_menu
     loop do
-      case get_num_from_user(render_menu_interface, max_number: 3)
-      when 2 then change_game_mode
-      when 3 then change_starter
+      case get_num_from_user(render_menu_interface, options: (1..3))
+      when 2 then change_game_mode!
+      when 3 then change_starter!
       when 1
         main_game
         break unless play_again?
@@ -343,158 +529,49 @@ class TTTGame
     end
   end
 
-  def render_menu_interface
-    components = [human.to_s, generate_menu_text, computer.to_s]
-    components.map! { |component| component.split("\n") }
-    render(components)
-  end
-
-  def generate_menu_text
-    final_menu = CONFIG['menu'].join("\n")
-    mode_text = @mode.to_s.capitalize.ljust(10)
-    first_text = @starter.ljust(10)
-    format(final_menu, mode: mode_text, first: first_text)
-  end
-
-  def change_game_mode
-    content = CONFIG['mode_options']
-    choice = get_num_from_user(content, max_number: 2)
-    @mode = case choice
+  def change_game_mode!
+    @mode = case get_num_from_user(multi_string_format('mode_options'),
+                                   options: (1..2))
             when 1 then :easy
             when 2 then :normal
             end
   end
 
-  def change_starter
-    content = render_starter_options
-    choice = get_num_from_user(content, max_number: 3)
-    @starter = case choice
+  def change_starter!
+    @starter = case get_num_from_user(render_starter_options, options: (1..3))
                when 1 then human.name
                when 2 then computer.name
                when 3 then "Random"
                end
   end
 
-  def render_starter_options
-    content = CONFIG['select_starter'].join("\n")
-    human_name = human.name.ljust(10)
-    computer_name = computer.name.ljust(10)
-    format(content,
-           human: human_name,
-           computer: computer_name)
-  end
-
   def main_game
     loop do
-      play_match
-      record_match_winner
+      match = TTTMatch.new(board, mode, [human, computer], starter)
+      match.play_match
+      record_score(match)
       break if game_winner?
     end
     display_game_result
     reset_wins
   end
 
-  def play_match
-    reset
-    display_board
-    player_moves
-    display_result
-  end
-
-  def record_match_winner
-    winner = find_winner
+  def record_score(match)
+    winner = match.find_winner
     winner.wins += 1 if winner
   end
 
-  def display_game_result
-    content = CONFIG['game_result']
-    if human.wins == WIN_GOAL[mode]
-      play_animation(content['win'], loops: 6)
-    else
-      display_frame(content['lose'])
-      sleep(1)
-    end
-  end
-
-  def reset_wins
-    human.wins = 0
-    computer.wins = 0
-  end
-
-  def player_moves
-    loop do
-      current_player_moves
-      display_board
-      sleep(0.3)
-      break if board.someone_won? || board.full?
-    end
-  end
-
-  def current_player_moves
-    if current_player == human
-      human_moves
-      @current_player = computer
-    else
-      computer_moves
-      @current_player = human
-    end
-  end
-
-  def display_options
-    options = if board.unmarked_keys.size == 1
-                board.unmarked_keys.first
-              else
-                board.unmarked_keys[0...-1].join(', ') +
-                  " or #{board.unmarked_keys.last}"
-              end
-    puts "Choose a square (#{options}):"
-  end
-
-  def human_moves
-    square = nil
-    loop do
-      display_options
-      square = gets.chomp.to_i
-      break if board.unmarked_keys.include?(square)
-      reject_input
-      display_board
-    end
-
-    board[square] = human.marker
-  end
-
-  def computer_moves
-    choice = computer.choose_move(mode)
-    board[choice] = computer.marker
+  def play_again?
+    get_text_from_user(CONFIG['play_again'], options: %w(Y N)) == "Y"
   end
 
   def game_winner?
     human.wins == WIN_GOAL[mode] || computer.wins == WIN_GOAL[mode]
   end
 
-  def display_result
-    content = render_match_endframe
-    display_frame(content)
-    sleep(1)
-  end
-
-  def find_winner
-    if board.winning_marker == human.marker
-      human
-    elsif board.winning_marker == computer.marker
-      computer
-    end
-  end
-
-  def render_match_endframe
-    endframe = CONFIG['match_winner'].join("\n")
-
-    winner = if board.someone_won?
-               find_winner.name + " Won!"
-             else
-               "It's a tie"
-             end
-    format(endframe, winner: winner.center(14))
+  def reset_wins
+    human.wins = 0
+    computer.wins = 0
   end
 
   def starter
@@ -505,67 +582,6 @@ class TTTGame
     else
       [computer, human].sample
     end
-  end
-
-  def display_welcome_message
-    column = CONFIG['empty_box']
-    frames = CONFIG['intro_seq']
-
-    frames = frames.map do |frame|
-      render([column, frame, column])
-    end
-    play_animation(frames)
-  end
-
-  def play_animation(frames, loops: 1)
-    loops.times do
-      frames.each do |content|
-        display_frame(content)
-        sleep(0.15)
-      end
-    end
-  end
-
-  def display_goodbye_message
-    display_frame(CONFIG['outro'])
-    sleep(1)
-    screen_clear
-  end
-
-  def display_board
-    components = [human.to_s, board.to_s, computer.to_s]
-    components.map! { |component| component.split("\n") }
-    screen_clear
-    puts render(components)
-  end
-
-  def render(components)
-    rendered_frame = []
-    components.first.size.times do |line|
-      rendered_line = ''
-      components.each do |component|
-        rendered_line << component[line]
-      end
-      rendered_frame << rendered_line
-    end
-    rendered_frame
-  end
-
-  def play_again?
-    answer = nil
-    loop do
-      display_frame(CONFIG['play_again'])
-      answer = gets.chomp.downcase
-      break if %w(y n).include? answer
-      reject_input
-    end
-
-    answer == "y"
-  end
-
-  def reset
-    board.reset
-    @current_player = starter
   end
 end
 
