@@ -156,7 +156,7 @@ class Deck
     @cards.shuffle!
   end
 
-  def draw_card
+  def draw_card!
     @cards.pop
   end
 
@@ -186,7 +186,7 @@ class Hand
 
   def <<(card)
     cards << card
-    @total = update_total
+    @total = update_total!
   end
 
   def as_strings
@@ -203,7 +203,7 @@ class Hand
 
   private
 
-  def update_total
+  def update_total!
     aces = 0
     new_total = 0
     cards.each do |card|
@@ -309,7 +309,7 @@ class Game
   def start
     play_intro_animation
     loop do
-      reset_game
+      reset_game!
       play_through_deck
       break if deck.size > 12 || !play_again?
     end
@@ -324,7 +324,7 @@ class Game
     loop do
       card_game
       break if deck.size <= 12 || quit_game?
-      clear_hands
+      clear_hands!
     end
   end
 
@@ -332,7 +332,7 @@ class Game
     deal_opening_hands
     play_turn(human)
     play_turn(dealer) unless human.busted?
-    update_score
+    update_score!
     show_result
   end
 
@@ -341,14 +341,14 @@ class Game
     sleep(0.3)
     2.times do
       [human, dealer].each do |player|
-        deal_card(player)
+        deal_card!(player)
       end
     end
   end
 
   # rubocop: disable Metrics/MethodLength, Metrics/AbcSize
-  def deal_card(player)
-    player.hand << deck.draw_card
+  def deal_card!(player)
+    player.hand << deck.draw_card!
     if player == dealer && !dealer.turn
       display_table
     else
@@ -369,7 +369,7 @@ class Game
     while player.total != "bust"
       display_options if player == human
       case player.choose_option
-      when :hit then deal_card(player)
+      when :hit then deal_card!(player)
       when :stay then break display_stay(player)
       when :invalid then error_message
       end
@@ -401,7 +401,7 @@ class Game
     return human if dealer.busted?
   end
 
-  def update_score
+  def update_score!
     @score += 1 if find_winner == human
     @score -= 1 if find_winner == dealer
   end
@@ -424,13 +424,13 @@ class Game
     answer == 'yes'
   end
 
-  def reset_game
+  def reset_game!
     @deck = Deck.new
-    clear_hands
+    clear_hands!
     @score = 0
   end
 
-  def clear_hands
+  def clear_hands!
     human.clear_hand
     dealer.clear_hand
     dealer.turn = false
