@@ -1,5 +1,4 @@
 require 'yaml'
-require 'pry'
 CONFIG = YAML.load_file('21.yml')
 
 module Renderables
