@@ -1,5 +1,7 @@
 require 'yaml'
 CONFIG = YAML.load_file('21.yml')
+GOAL = 21
+DEALER_STAYS = 21
 
 module Renderables
   # creates a composition from multiple string 'graphics'
@@ -56,7 +58,7 @@ module Displayables
 
   def scoreboard_display
     template = CONFIG['score'].join("\n")
-    points = score.to_s.center(3)
+    points = human.score.to_s.center(3)
     graphic = format(template, score: points)
     graphic.split("\n")
   end
@@ -194,7 +196,7 @@ class Hand
   end
 
   def total
-    if @total <= 21
+    if @total <= GOAL
       @total
     else
       'bust'
@@ -215,7 +217,7 @@ class Hand
 
   def adjust_aces(total, aces)
     aces.times do
-      total -= 10 if total > 21
+      total -= 10 if total > GOAL
     end
     total
   end
@@ -237,27 +239,31 @@ class Player
     hand.total
   end
 
-  def render_hand
-    graphic = hand.as_strings.map do |card|
-      card.split("\n")
-    end
-
-    render(graphic)
+  def clear_hand
+    @hand = Hand.new
   end
+end
+
+class Human < Player
+  attr_accessor :score
 
   def choose_option
     choice = gets.chomp.downcase
-    if choice == 'hit'
+    if choice == 'hit' || choice == 'h'
       :hit
-    elsif choice == 'stay'
+    elsif choice == 'stay' || choice == 's'
       :stay
     else
       :invalid
     end
   end
 
-  def clear_hand
-    @hand = Hand.new
+  def render_hand
+    graphic = hand.as_strings.map do |card|
+      card.split("\n")
+    end
+
+    render(graphic)
   end
 end
 
@@ -290,7 +296,7 @@ class Dealer < Player
   end
 
   def choose_option
-    if hand.total < 17
+    if hand.total < DEALER_STAYS
       :hit
     else
       :stay
@@ -302,7 +308,7 @@ class Game
   include Renderables, Displayables
 
   def initialize
-    @human = Player.new
+    @human = Human.new
     @dealer = Dealer.new
   end
 
@@ -318,7 +324,7 @@ class Game
 
   private
 
-  attr_reader :human, :dealer, :deck, :score
+  attr_reader :human, :dealer, :deck
 
   def play_through_deck
     loop do
@@ -402,8 +408,8 @@ class Game
   end
 
   def update_score!
-    @score += 1 if find_winner == human
-    @score -= 1 if find_winner == dealer
+    human.score += 1 if find_winner == human
+    human.score -= 1 if find_winner == dealer
   end
 
   def quit_game?
@@ -416,7 +422,7 @@ class Game
   def play_again?
     answer = ''
     loop do
-      display_endgame(score)
+      display_endgame(human.score)
       answer = gets.chomp.downcase
       break if ['yes', 'no'].include?(answer)
       display_rejection
@@ -427,7 +433,7 @@ class Game
   def reset_game!
     @deck = Deck.new
     clear_hands!
-    @score = 0
+    human.score = 0
   end
 
   def clear_hands!
